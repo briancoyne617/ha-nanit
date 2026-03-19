@@ -17,14 +17,10 @@ import aiohttp
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SESSION_FILE = REPO_ROOT / ".nanit-session"
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "packages" / "aionanit"))
 
-from custom_components.nanit.api import (  # noqa: E402
-    NanitAuthClient,
-    NanitAuthError,
-    NanitConnectionError,
-    NanitMfaRequiredError,
-)
+from aionanit.exceptions import NanitAuthError, NanitConnectionError, NanitMfaRequiredError  # noqa: E402
+from aionanit.rest import NanitRestClient  # noqa: E402
 
 
 async def async_main() -> int:
@@ -37,17 +33,17 @@ async def async_main() -> int:
     password = args.password or getpass("Password: ")
 
     async with aiohttp.ClientSession() as session:
+        client = NanitRestClient(session)
         try:
-            auth = NanitAuthClient(session)
             try:
-                result = await auth.login(email, password)
+                result = await client.async_login(email, password)
             except NanitMfaRequiredError as err:
                 code = getpass("MFA code: ")
-                result = await auth.verify_mfa(email, password, err.mfa_token, code)
+                result = await client.async_login_mfa(email, password, err.mfa_token, code)
 
             access_token = result["access_token"]
             refresh_token = result["refresh_token"]
-            babies = await auth.get_babies(access_token)
+            babies = await client.async_get_babies(access_token)
 
             if not babies:
                 print("Error: no babies found on account", file=sys.stderr)
@@ -57,14 +53,17 @@ async def async_main() -> int:
             session_data = {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
-                "baby_uid": baby.get("uid", ""),
-                "camera_uid": baby.get("camera_uid", ""),
-                "baby_name": baby.get("name", ""),
+                "baby_uid": baby.uid,
+                "camera_uid": baby.camera_uid,
+                "baby_name": baby.name,
+                "speaker_uid": baby.speaker_uid,
             }
 
             SESSION_FILE.write_text(json.dumps(session_data, indent=2) + "\n")
 
             print(f"Logged in. Baby: {session_data['baby_name']} (uid={session_data['baby_uid']})")
+            if baby.speaker_uid:
+                print(f"Speaker UID: {baby.speaker_uid}")
             print(f"Session saved to {SESSION_FILE.name}")
             return 0
 

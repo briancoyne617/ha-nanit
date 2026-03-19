@@ -118,6 +118,7 @@ class Baby:
     uid: str
     name: str
     camera_uid: str
+    speaker_uid: str | None = None
 
 
 @dataclass(frozen=True)

@@ -8,20 +8,32 @@
   <em>Keep an eye on your little one — right from your Home Assistant dashboard.</em>
 </p>
 
-> [!IMPORTANT]
-> **v1.x is here.** The integration is now fully standalone — no add-on or Go daemon required. Just install, log in, and you're set. Previous 0.x.x releases (which required the `nanitd` add-on) are still available. See [LEGACY_INSTALL.md](LEGACY_INSTALL.md) for the old setup guide.
+> [!NOTE]
+> This is a fork of [wealthystudent/ha-nanit](https://github.com/wealthystudent/ha-nanit) with added **Nanit Sound + Light** support (power, sound track selection, volume).
 
 ---
 
 ## Entities
 
-| Type | Entities | Enabled by default |
-|------|----------|--------------------|
-| Camera | RTMPS live stream with on/off control | Yes |
+### Camera
+
+| Type | Entity | Enabled by default |
+|------|--------|--------------------|
+| Camera | RTMPS live stream | Yes |
 | Sensor | Temperature, Humidity, Light level | Yes |
 | Binary Sensor | Motion, Sound (cloud-polled), Connectivity | Motion, Sound |
 | Switch | Night Light, Camera Power | Yes |
 | Number | Volume (0–100 %) | No |
+
+### Sound + Light machine
+
+The Nanit Sound + Light is a **separate device** from the camera. It connects to `wss://remote.nanit.com/speakers/...` using its own protobuf protocol (see [below](#sound--light-protocol)).
+
+| Type | Entity | Enabled by default |
+|------|--------|--------------------|
+| Switch | Speaker Power (on/off) | Yes |
+| Select | Sound Track | Yes |
+| Number | Speaker Volume (0–100 %) | Yes |
 
 > [!NOTE]
 > Not all Nanit features are supported yet. If you'd like to add a missing feature, contributions are welcome — check the [AGENTS.md](AGENTS.md) guide for architecture details and development guidelines.
@@ -31,7 +43,7 @@
 ### HACS (recommended)
 
 1. Open **HACS → Integrations → ⋮ → Custom repositories**.
-2. Add `https://github.com/wealthystudent/ha-nanit` as **Integration**.
+2. Add `https://github.com/briancoyne617/ha-nanit` as **Integration**.
 3. Install **Nanit**, then restart Home Assistant.
 
 ### Manual
@@ -61,22 +73,52 @@ Home Assistant              Nanit Camera (LAN)        Nanit Cloud
 ┌────────────┐  WebSocket   ┌──────────┐
 │ nanit      │◄────────────►│ :442     │
 │ integration│              └──────────┘
-│            │  WebSocket + REST                      ┌──────────────┐
-│ aionanit   │◄──────────────────────────────────────►│ api.nanit.com│
-└────────────┘                                        └──────────────┘
+│            │  WebSocket + REST                      ┌─────────────────────┐
+│ aionanit   │◄──────────────────────────────────────►│ api.nanit.com       │
+│            │                                        │ remote.nanit.com    │
+└────────────┘                                        └─────────────────────┘
+                                                               ▲
+                                                               │ WebSocket
+                                                       ┌───────┴──────┐
+                                                       │ Sound + Light│
+                                                       │  (cloud only)│
+                                                       └──────────────┘
 ```
 
 | Mode | Description |
 |------|-------------|
-| **Cloud only** | Default. All communication via Nanit cloud. |
-| **Cloud + Local** | Cloud for auth and events, local WebSocket for sensors and controls. |
+| **Camera cloud only** | Default. All camera communication via Nanit cloud. |
+| **Camera local** | Cloud for auth and events, local WebSocket (:442) for camera sensors and controls. |
+| **Speaker** | Always cloud (`wss://remote.nanit.com/speakers/...`). The speaker's port 442 is its outbound connection to the cloud, not for inbound app control. |
 
-## Migrating from v0.x
+## Sound + Light Protocol
 
-1. Update the integration via HACS (or replace the files manually).
-2. Delete the existing Nanit config entry in **Settings → Devices & Services**.
-3. Re-add the integration. Entity unique IDs are preserved.
-4. Uninstall the `nanitd` add-on — it's no longer needed.
+The Sound + Light machine uses a **completely different WebSocket endpoint and protobuf schema** from the camera — this tripped up early development significantly.
+
+| | Camera | Sound + Light |
+|---|---|---|
+| WebSocket host | `api.nanit.com` | `remote.nanit.com` |
+| Path | `/focus/cameras/{uid}/user_connect` | `/speakers/{uid}/user_connect/` |
+| Proto schema | `aionanit/proto/` (in the `aionanit` package) | `sound_light_pb2.py` (bundled here) |
+| Local access | Yes, via LAN IP on port 442 | No — cloud only |
+
+### `sound_light_pb2.py`
+
+`custom_components/nanit/sound_light_pb2.py` is a compiled Python protobuf module for the Sound + Light device. It was reverse-engineered from the Nanit Android APK by [com6056/nanit-sound-light](https://github.com/com6056/nanit-sound-light) (MIT License).
+
+**You should never need to edit this file by hand.** If Nanit changes their protocol, regenerate it:
+
+```bash
+# 1. Update the .proto definition (see the comment block at the top of the file)
+# 2. Install the compiler
+pip install grpcio-tools
+# 3. Regenerate (run from the custom_components/nanit/ directory)
+python -m grpc_tools.protoc -I. --python_out=. sound_light.proto
+# 4. Remove the ValidateProtobufRuntimeVersion call from the generated file
+#    (it breaks on older protobuf versions that HA may ship)
+```
+
+The full `.proto` source is documented in the comment block at the top of `sound_light_pb2.py`.
 
 ## Troubleshooting
 

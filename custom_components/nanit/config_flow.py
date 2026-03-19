@@ -28,6 +28,7 @@ from .const import (
     CONF_MFA_CODE,
     CONF_MFA_TOKEN,
     CONF_REFRESH_TOKEN,
+    CONF_SPEAKER_UID,
     CONF_STORE_CREDENTIALS,
     DOMAIN,
     LOGGER,
@@ -50,6 +51,7 @@ class NanitConfigFlow(ConfigFlow, domain=DOMAIN):
         self._baby_uid: str = ""
         self._camera_uid: str = ""
         self._baby_name: str = ""
+        self._speaker_uid: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -153,6 +155,7 @@ class NanitConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._baby_uid = baby.uid
                 self._camera_uid = baby.camera_uid
                 self._baby_name = baby.name
+                self._speaker_uid = baby.speaker_uid
             else:
                 self._baby_name = "Nanit Camera"
         except Exception:
@@ -179,6 +182,8 @@ class NanitConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_BABY_NAME: self._baby_name,
                 CONF_STORE_CREDENTIALS: self._store_credentials,
             }
+            if self._speaker_uid:
+                data[CONF_SPEAKER_UID] = self._speaker_uid
 
             if camera_ip:
                 data[CONF_CAMERA_IP] = camera_ip

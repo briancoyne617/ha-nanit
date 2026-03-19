@@ -13,16 +13,19 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from aionanit import NanitAuthError, NanitCamera, NanitConnectionError
 
 from .const import (
+    CONF_BABY_NAME,
     CONF_BABY_UID,
     CONF_CAMERA_IP,
     CONF_CAMERA_UID,
     CONF_REFRESH_TOKEN,
+    CONF_SPEAKER_UID,
     DOMAIN,
     LOGGER,
     PLATFORMS,
 )
 from .coordinator import NanitCloudCoordinator, NanitPushCoordinator
 from .hub import NanitHub
+from .speaker import NanitSpeakerCoordinator
 
 
 @dataclass
@@ -33,6 +36,7 @@ class NanitData:
     camera: NanitCamera
     push_coordinator: NanitPushCoordinator
     cloud_coordinator: NanitCloudCoordinator | None
+    speaker_coordinator: NanitSpeakerCoordinator | None
 
 
 type NanitConfigEntry = ConfigEntry[NanitData]
@@ -96,11 +100,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: NanitConfigEntry) -> boo
         LOGGER.warning("Cloud event coordinator failed to start; cloud sensors disabled")
         cloud_coordinator = None
 
+    # Speaker coordinator (optional — only if a Sound + Light is paired)
+    # For existing entries without speaker_uid, try fetching it once from the API.
+    speaker_coordinator: NanitSpeakerCoordinator | None = None
+    speaker_uid = entry.data.get(CONF_SPEAKER_UID)
+    if not speaker_uid:
+        try:
+            babies = await hub.async_get_babies()
+            if babies and babies[0].speaker_uid:
+                speaker_uid = babies[0].speaker_uid
+                hass.config_entries.async_update_entry(
+                    entry,
+                    data={**entry.data, CONF_SPEAKER_UID: speaker_uid},
+                )
+        except Exception:
+            LOGGER.debug("Could not fetch speaker UID from API")
+    if speaker_uid:
+        baby_name = entry.data.get(CONF_BABY_NAME, "Nanit")
+        speaker_coordinator = NanitSpeakerCoordinator(
+            hass,
+            session,
+            hub.token_manager,
+            speaker_uid,
+            baby_name,
+        )
+        await speaker_coordinator.async_setup()
+
     entry.runtime_data = NanitData(
         hub=hub,
         camera=camera,
         push_coordinator=push_coordinator,
         cloud_coordinator=cloud_coordinator,
+        speaker_coordinator=speaker_coordinator,
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -112,5 +143,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: NanitConfigEntry) -> bo
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
+        if entry.runtime_data.speaker_coordinator is not None:
+            await entry.runtime_data.speaker_coordinator.async_shutdown()
         await entry.runtime_data.hub.async_close()
     return unload_ok

@@ -12,6 +12,22 @@ login *args:
 events *args:
     python3 tools/nanit-events.py {{args}}
 
+# Dump raw /babies API response — shows all device UIDs (camera, sound machine, etc.)
+devices:
+    python3 tools/nanit-devices.py
+
+# Probe Nanit Sound + Light machine (requires active session from: just login)
+# Uses wss://remote.nanit.com/speakers/{uid}/user_connect/ with speaker proto.
+# Examples:
+#   just probe-audio state                    # current state
+#   just probe-audio sounds                   # list tracks
+#   just probe-audio stop                     # turn off
+#   just probe-audio play                     # turn on
+#   just probe-audio set-sound "Brown Noise"  # set track by name
+#   just probe-audio set-volume 50            # set volume 0-100
+probe-audio *args:
+    python3 tools/probe_audio.py {{args}}
+
 # Create a GitHub release by bumping the latest version.
 # Usage: just release <patch|minor|major>
 # Example: just release patch  (0.2.1 → 0.2.2)

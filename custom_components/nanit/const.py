@@ -12,6 +12,7 @@ PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.SWITCH,
     Platform.NUMBER,
+    Platform.SELECT,
     Platform.CAMERA,
 ]
 
@@ -30,3 +31,4 @@ CONF_BABY_UID = "baby_uid"
 CONF_CAMERA_UID = "camera_uid"
 CONF_BABY_NAME = "baby_name"
 CONF_CAMERA_IP = "camera_ip"
+CONF_SPEAKER_UID = "speaker_uid"

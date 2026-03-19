@@ -16,7 +16,8 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import NanitConfigEntry
 from .const import CONF_CAMERA_UID
 from .coordinator import NanitPushCoordinator
-from .entity import NanitEntity
+from .entity import NanitEntity, NanitSpeakerEntity
+from .speaker import NanitSpeakerCoordinator
 
 from aionanit import NanitCamera
 from aionanit.models import CameraState, NightLightState
@@ -81,9 +82,13 @@ async def async_setup_entry(
     """Set up Nanit switches."""
     coordinator = entry.runtime_data.push_coordinator
     camera = entry.runtime_data.camera
-    async_add_entities(
+    entities: list = [
         NanitSwitch(coordinator, camera, description) for description in SWITCHES
-    )
+    ]
+    speaker_coordinator = entry.runtime_data.speaker_coordinator
+    if speaker_coordinator is not None:
+        entities.append(NanitSpeakerSwitch(speaker_coordinator))
+    async_add_entities(entities)
 
 
 class NanitSwitch(NanitEntity, RestoreEntity, SwitchEntity):
@@ -200,3 +205,32 @@ class NanitSwitch(NanitEntity, RestoreEntity, SwitchEntity):
             self._command_state = None
             self.async_write_ha_state()
             raise
+
+
+class NanitSpeakerSwitch(NanitSpeakerEntity, SwitchEntity):
+    """Switch entity for Sound + Light power (on / off)."""
+
+    _attr_translation_key = "speaker_power"
+    _attr_device_class = SwitchDeviceClass.SWITCH
+    _attr_icon = "mdi:speaker"
+
+    def __init__(self, coordinator: NanitSpeakerCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"speaker_{coordinator.speaker_uid}_power"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True when the speaker is on."""
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.is_on
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Turn the speaker on."""
+        await self.coordinator.async_send_control(is_on=True)
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Turn the speaker off."""
+        await self.coordinator.async_send_control(is_on=False)
+        self.async_write_ha_state()

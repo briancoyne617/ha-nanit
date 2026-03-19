@@ -42,6 +42,11 @@ class NanitHub:
         """Return the underlying NanitClient."""
         return self._client
 
+    @property
+    def token_manager(self):
+        """Return the token manager (for passing to speaker coordinator)."""
+        return self._client.token_manager
+
     def setup_token_callback(
         self,
         callback: Callable[[str, str], None],

@@ -92,10 +92,15 @@
     },
     "switch": {
       "night_light": { "name": "Night Light" },
-      "camera_power": { "name": "Camera Power" }
+      "camera_power": { "name": "Camera Power" },
+      "speaker_power": { "name": "Power" }
     },
     "number": {
-      "volume": { "name": "Volume" }
+      "volume": { "name": "Volume" },
+      "speaker_volume": { "name": "Volume" }
+    },
+    "select": {
+      "speaker_sound": { "name": "Sound" }
     },
     "camera": {
       "camera": { "name": "Camera" }
