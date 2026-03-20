@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Vendored aionanit — bundled in _deps/ to avoid PyPI dependency conflicts.
+# Must run before any aionanit imports, and before config_flow.py is loaded.
+_DEPS = str(Path(__file__).parent / "_deps")
+if _DEPS not in sys.path:
+    sys.path.insert(0, _DEPS)
+
 from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry

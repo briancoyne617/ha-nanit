@@ -8,6 +8,6 @@
   "config_flow": true,
   "iot_class": "cloud_push",
   "integration_type": "hub",
-  "requirements": ["aionanit @ git+https://github.com/briancoyne617/ha-nanit.git#subdirectory=packages/aionanit"],
+  "requirements": [],
   "loggers": ["custom_components.nanit", "aionanit"]
 }
