@@ -31,6 +31,7 @@ class NanitSpeakerSoundSelect(NanitSpeakerEntity, SelectEntity):
 
     _attr_translation_key = "speaker_sound"
     _attr_icon = "mdi:music-note"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: NanitSpeakerCoordinator) -> None:
         super().__init__(coordinator)

@@ -13,6 +13,7 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.NUMBER,
     Platform.SELECT,
+    Platform.MEDIA_PLAYER,
     Platform.CAMERA,
 ]
 

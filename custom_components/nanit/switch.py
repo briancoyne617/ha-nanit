@@ -213,6 +213,7 @@ class NanitSpeakerSwitch(NanitSpeakerEntity, SwitchEntity):
     _attr_translation_key = "speaker_power"
     _attr_device_class = SwitchDeviceClass.SWITCH
     _attr_icon = "mdi:speaker"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: NanitSpeakerCoordinator) -> None:
         super().__init__(coordinator)

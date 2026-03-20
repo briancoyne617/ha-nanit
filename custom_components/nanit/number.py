@@ -78,6 +78,7 @@ class NanitSpeakerVolume(NanitSpeakerEntity, NumberEntity):
     _attr_mode = NumberMode.SLIDER
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:volume-high"
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: NanitSpeakerCoordinator) -> None:
         super().__init__(coordinator)

@@ -102,6 +102,9 @@
     "select": {
       "speaker_sound": { "name": "Sound" }
     },
+    "media_player": {
+      "speaker_media_player": { "name": "Sound + Light" }
+    },
     "camera": {
       "camera": { "name": "Camera" }
     }
