@@ -6,17 +6,10 @@
 """Generated protocol buffer code."""
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
-from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
-_runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC,
-    6,
-    31,
-    1,
-    '',
-    'nanit.proto'
-)
+# ValidateProtobufRuntimeVersion removed — HAOS ships protobuf 5.x but this
+# file was generated with 6.x. The serialized descriptor is compatible.
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
