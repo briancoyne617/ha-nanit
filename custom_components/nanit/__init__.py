@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
+from pathlib import Path  # used for _DEPS vendor injection and clips_dir
 
 # Vendored aionanit — bundled in _deps/ to avoid PyPI dependency conflicts.
 # Must run before any aionanit imports, and before config_flow.py is loaded.
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ACCESS_TOKEN
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -32,6 +32,7 @@ from .const import (
     LOGGER,
     PLATFORMS,
 )
+from .buffer import NanitBufferManager
 from .coordinator import NanitCloudCoordinator, NanitPushCoordinator
 from .hub import NanitHub
 from .speaker import NanitSpeakerCoordinator
@@ -46,6 +47,7 @@ class NanitData:
     push_coordinator: NanitPushCoordinator
     cloud_coordinator: NanitCloudCoordinator | None
     speaker_coordinator: NanitSpeakerCoordinator | None
+    buffer_manager: NanitBufferManager | None
 
 
 type NanitConfigEntry = ConfigEntry[NanitData]
@@ -135,13 +137,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: NanitConfigEntry) -> boo
         )
         await speaker_coordinator.async_setup()
 
+    # Rolling video buffer (saves clips on sound alert)
+    baby_name = entry.data.get(CONF_BABY_NAME, "Nanit")
+    clips_dir = Path(hass.config.path("nanit_clips"))
+    buffer_manager = NanitBufferManager(
+        hass=hass,
+        camera=camera,
+        token_manager=hub.token_manager,
+        push_coordinator=push_coordinator,
+        baby_name=baby_name,
+        clips_dir=clips_dir,
+    )
+    try:
+        await buffer_manager.async_setup()
+    except Exception:
+        LOGGER.warning("Rolling video buffer failed to start; clip saving disabled")
+        buffer_manager = None
+
     entry.runtime_data = NanitData(
         hub=hub,
         camera=camera,
         push_coordinator=push_coordinator,
         cloud_coordinator=cloud_coordinator,
         speaker_coordinator=speaker_coordinator,
+        buffer_manager=buffer_manager,
     )
+
+    # Register nanit.save_clip service (idempotent — only once per domain)
+    if not hass.services.has_service(DOMAIN, "save_clip"):
+        async def _handle_save_clip(call: ServiceCall) -> None:
+            for cfg_entry in hass.config_entries.async_entries(DOMAIN):
+                if (
+                    hasattr(cfg_entry, "runtime_data")
+                    and cfg_entry.runtime_data
+                    and cfg_entry.runtime_data.buffer_manager
+                ):
+                    await cfg_entry.runtime_data.buffer_manager.async_save_clip(
+                        label=call.data.get("label", "manual")
+                    )
+
+        hass.services.async_register(DOMAIN, "save_clip", _handle_save_clip)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -152,6 +187,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: NanitConfigEntry) -> bo
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
+        if entry.runtime_data.buffer_manager is not None:
+            await entry.runtime_data.buffer_manager.async_shutdown()
         if entry.runtime_data.speaker_coordinator is not None:
             await entry.runtime_data.speaker_coordinator.async_shutdown()
         await entry.runtime_data.hub.async_close()
